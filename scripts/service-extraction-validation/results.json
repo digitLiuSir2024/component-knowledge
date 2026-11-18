@@ -1,0 +1,134 @@
+{
+  "http://127.0.0.1:8081/api/v1/knowledge/component-context": {
+    "code": 200,
+    "dataKeys": [
+      "interactions",
+      "collaboration",
+      "relatedComponents",
+      "page",
+      "businessKnowledge",
+      "technicalKnowledge",
+      "interfaceContexts",
+      "codeLocations",
+      "issues"
+    ]
+  },
+  "http://127.0.0.1:8081/api/v1/model-context/component": {
+    "code": 200,
+    "dataKeys": [
+      "systemCode",
+      "projectCode",
+      "page",
+      "businessKnowledge",
+      "technicalKnowledge",
+      "interfaces",
+      "issues"
+    ]
+  },
+  "http://127.0.0.1:8081/api/v1/knowledge/maintenance/context": {
+    "code": 200,
+    "dataKeys": [
+      "currentVersionId",
+      "manifest",
+      "objects",
+      "context",
+      "currentVersion",
+      "viewedVersion",
+      "legacyContext",
+      "sourceRevision",
+      "registrationObjectId",
+      "pendingDraftIds"
+    ]
+  },
+  "http://127.0.0.1:5173/zhituo/api/v1/knowledge/component-context": {
+    "code": 200,
+    "dataKeys": [
+      "interactions",
+      "collaboration",
+      "relatedComponents",
+      "page",
+      "businessKnowledge",
+      "technicalKnowledge",
+      "interfaceContexts",
+      "codeLocations",
+      "issues"
+    ]
+  },
+  "http://127.0.0.1:5173/zhituo/api/v1/model-context/component": {
+    "code": 200,
+    "dataKeys": [
+      "systemCode",
+      "projectCode",
+      "page",
+      "businessKnowledge",
+      "technicalKnowledge",
+      "interfaces",
+      "issues"
+    ]
+  },
+  "http://127.0.0.1:5173/zhituo/api/v1/knowledge/maintenance/context": {
+    "code": 200,
+    "dataKeys": [
+      "currentVersionId",
+      "manifest",
+      "objects",
+      "context",
+      "currentVersion",
+      "viewedVersion",
+      "legacyContext",
+      "sourceRevision",
+      "registrationObjectId",
+      "pendingDraftIds"
+    ]
+  },
+  "statistics": 200,
+  "initialize": {
+    "name": "component-knowledge",
+    "version": "1.0.0"
+  },
+  "tools": [
+    "knowledge_coverage_scope",
+    "validate_knowledge_coverage",
+    "read_component_knowledge",
+    "search_knowledge_objects",
+    "read_knowledge_object_version",
+    "list_knowledge_object_versions",
+    "submit_knowledge_draft",
+    "submit_initial_knowledge_draft",
+    "read_knowledge_draft"
+  ],
+  "mcpRead": [
+    "currentVersionId",
+    "manifest",
+    "objects",
+    "context",
+    "currentVersion",
+    "viewedVersion",
+    "legacyContext",
+    "sourceRevision",
+    "registrationObjectId",
+    "pendingDraftIds"
+  ],
+  "coverageScope": [
+    {
+      "componentId": "kpiStrip",
+      "source": "src/pages/PlanReport",
+      "name": "指标",
+      "requiredItems": [
+        "COMPONENT",
+        "PAGE",
+        "FLOW",
+        "KNOWLEDGE",
+        "INTERFACE",
+        "APPLICABILITY",
+        "PAGE_FLOW",
+        "INTERACTION",
+        "COMPONENT_RELATION"
+      ]
+    }
+  ],
+  "coverageValidation": {
+    "coverageDigest": "08809be751ea7576d75539c1173ac78fa18011fbf95070096783fd53f72ebe69"
+  },
+  "skillLinks": "passed"
+}
