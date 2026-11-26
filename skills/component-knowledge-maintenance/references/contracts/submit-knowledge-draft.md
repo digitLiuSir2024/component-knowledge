@@ -1,4 +1,5 @@
 # submit_knowledge_draft
+通用字段、content 类型、Change、Draft 与错误码见 [common-schema.md](common-schema.md)。
 
 后端 POST `/api/v1/knowledge/maintenance/drafts/create`。
 
@@ -14,7 +15,7 @@
 
 ## MCP 附加参数
 
-调用 MCP 时还须传 `coveragePlan`、`coverageDigest` 和 `expectedPendingDraft`。前两项由桥接层校验及移除，`expectedPendingDraft` 转发服务端。将下方业务请求与 `expectedPendingDraft` 放入计划对应组件的 request，执行覆盖校验后将原计划及其摘要附到 MCP 请求。
+调用 MCP 时还须传 `coveragePlan`、`coverageDigest`、`expectedPendingDraft` 和 `approvalToken`。前两项与令牌由桥接层校验及移除，`expectedPendingDraft` 转发服务端。令牌来自 `validate_knowledge_coverage` 的返回，用于防止使用未校验计划提交；它不是用户身份认证。将下方业务请求与 `expectedPendingDraft` 放入计划对应组件的 request，执行覆盖校验后将原计划及其摘要附到 MCP 请求。
 
 ## 业务请求示例
 
@@ -60,7 +61,7 @@
 }
 ```
 
-Change：changeId:string（草稿内唯一）、operation:CREATE/UPDATE/LINK/UNLINK/UPGRADE_REFERENCE/EXPIRE、objectType:string、objectId:string（CREATE 必须使用 `new:` 前缀草稿临时键）、baseObjectVersionId:string|null、targetVersionId:string|null、content:object|null、confirmationStatus:CONFIRMED/PENDING|null、evidence:array、atomicGroupId:string|null。字段均传入；LINK/UPGRADE_REFERENCE 用 targetVersionId，UPDATE/CREATE 用 content。UNLINK 只移除当前组件引用；EXPIRE 生成停用对象版本，不物理删除。
+Change：changeId:string（草稿内唯一）、operation:CREATE/UPDATE/LINK/UNLINK/UPGRADE_REFERENCE/EXPIRE、objectType:string、objectId:string（CREATE 必须使用 `new:` 前缀草稿临时键）、baseObjectVersionId:string|null、targetVersionId:string|null、content:object|null、confirmationStatus:CONFIRMED/PENDING|null、evidence:array、atomicGroupId:string|null。字段均传入；LINK/UPGRADE_REFERENCE 用 targetVersionId，UPDATE/CREATE 用 content。UNLINK 只移除当前组件引用；EXPIRE 生成停用对象版本，不物理删除。 MIGRATION 基线草稿的 baseObjectVersionId 可为 null；其余模式 UPDATE/EXPIRE 必须为非空正式对象版本 ID。
 
 Evidence：kind:string（FACT/REQUIREMENT/INFERENCE）、source:string（文件/会话说明定位）、excerpt:string；三项必填非空。只提交必要依据，不上传整个会话。
 
@@ -94,30 +95,18 @@ INTERFACE 嵌套结构：
 - examples 每项含非空字符串 id、name、request、response，以及字符串 description；request 和 response 是可解析的 JSON 字符串。
 - ruleIds 是规则对象稳定 ID 的字符串数组。
 
-Draft：id:string、systemCode:string、projectCode:string、componentId:string|null（数据库 ID）、origin:SESSION/MANUAL/RESTORE/MIGRATION、status:DRAFT/PUBLISHED/DISCARDED、revision:integer、baseVersionId:string|null、changes:array<Change>、selectedChangeIds:array<string>、before:object、after:object、beforeObjects:array、afterObjects:array、independent:boolean、issues:array（当前返回 []）、reviewUrl:string、publishResult:object|null。before/after 为组装的知识上下文，beforeObjects/afterObjects 为用于预览的对象数组。另返回 identity（后端保存的请求）、payload（内部快照载荷）、objectBases（对象基准）、selectedChanges（持久化选择）、publishedResult（持久化的发布结果）为内部字符串字段，可能为空；requestId、requestDigest、createdAt、updatedAt 为字符串。草稿仅保存不切换详情；有问题的操作不得发布，PENDING 内容不得自动变为 CONFIRMED。
+Draft：id:string、systemCode:string、projectCode:string、componentId:string|null（数据库 ID）、origin:SESSION/MANUAL/RESTORE/MIGRATION、status:DRAFT/PUBLISHED/DISCARDED、revision:integer、baseVersionId:string|null、changes:array<Change>、selectedChangeIds:array<string>、before:object、after:object、beforeObjects:array、afterObjects:array、independent:boolean、issues:array（当前返回 []）、reviewUrl:string、publishResult:object|null。before/after 为组装的知识上下文，beforeObjects/afterObjects 为用于预览的对象数组。另返回 identity（后端保存的请求对象）以及 requestId、createdAt、updatedAt；payload、objectBases、selectedChanges、publishedResult、requestDigest 等内部字段不在响应中返回。草稿仅保存不切换详情；有问题的操作不得发布，PENDING 内容不得自动变为 CONFIRMED。
 
 PublishResult：draftId:string、baselineVersionId:string|null、componentVersionId:string|null、objectVersionIds:object<string,string>。
 ## 响应数据示例（必要时节选）
 
 ```json
-{"id": "D1", "origin": "SESSION", "status": "DRAFT", "revision": 1, "selectedChangeIds": ["c1"], "reviewUrl": "/component-detail?draftId=D1", "publishResult": null}
+{"id": "D1", "origin": "SESSION", "status": "DRAFT", "revision": 1, "selectedChangeIds": ["c1"], "reviewUrl": "/component-detail?knowledgeDraft=D1&knowledgeComponent=MetricsStrip&knowledgeReview=1", "publishResult": null}
 ```
 
 ## 业务错误码
 
-| code | 标识 | 含义 |
-| --- | --- | --- |
-| 10100 | KNOWLEDGE_NOT_FOUND | 对象、草稿或版本不存在 |
-| 10101 | KNOWLEDGE_SCOPE_MISMATCH | 对象不属于当前系统项目或组件 |
-| 10102 | KNOWLEDGE_REVISION_CONFLICT | 草稿修订号已变化 |
-| 10103 | KNOWLEDGE_BASE_CONFLICT | 组件或编辑对象基准已变化 |
-| 10104 | KNOWLEDGE_REFERENCE_INVALID | 引用版本或完整性不合法 |
-| 10105 | KNOWLEDGE_DEPENDENCY_INVALID | 关联选择依赖不完整 |
-| 10106 | KNOWLEDGE_NO_CHANGE | 没有可发布的实质变更 |
-| 10107 | KNOWLEDGE_DRAFT_CLOSED | 草稿已丢弃或不允许修改 |
-| 10108 | KNOWLEDGE_REQUEST_CONFLICT | 幂等键被用于不同内容 |
-| 10109 | KNOWLEDGE_OBJECT_INVALID | 类型、结构、状态或生命周期不合法 |
-| 10110 | KNOWLEDGE_DISABLED | 维护功能尚未启用 |
+完整错误码表见 [common-schema.md](common-schema.md#业务错误码)。
 
 
 组件提交使用完整累计候选。存在唯一普通待确认草稿时整份替换并返回替代草稿；有多条或已有恢复草稿时返回 10111。

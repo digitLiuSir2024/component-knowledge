@@ -49,7 +49,9 @@ def dto_fields(path, prefix, active=()):
     fields = {}
     for match in DTO_FIELD.finditer(source):
         field_type = match["type"]
-        nested_type = field_type.removeprefix("List<").removesuffix(">")
+        nested_type = field_type
+        if nested_type.startswith("List<") and nested_type.endswith(">"):
+            nested_type = nested_type[5:-1]
         nested_path = path.with_name(nested_type + ".java")
         unwrapped = "@JsonUnwrapped" in match["annotations"]
         key = f"{prefix}.{match['name']}"

@@ -75,6 +75,26 @@ public class KnowledgeMaintenanceApplicationServiceImpl implements KnowledgeMain
         return access.page(support.objectHistory(query), query);
     }
 
+    /** 交互图只读当前或指定版本，不写入任何对象。 */
+    public JsonNode readInteractionGraph(MaintenanceRequest request) {
+        ObjectNode source = access.context(request);
+        JsonNode context = source.path("viewedVersion").isObject() ? source.path("context") : source.path("legacyContext");
+        if (!context.isObject()) {
+            context = source.path("context");
+        }
+        ObjectNode result = json.object();
+        result.put("currentVersionId", source.path("currentVersionId").asText(null));
+        result.set("viewedVersion", source.path("viewedVersion"));
+        result.set("interactions", array(context, "interactions"));
+        result.set("collaboration", context.path("collaboration").isObject() ? context.path("collaboration").deepCopy() : json.object());
+        result.set("issues", array(context, "issues"));
+        return result;
+    }
+
+    private JsonNode array(JsonNode source, String field) {
+        return source.path(field).isArray() ? source.path(field).deepCopy() : json.array();
+    }
+
     /** 草稿摘要不返回内部压缩快照。 */
     public JsonNode listDrafts(MaintenanceRequest request) {
         KnowledgeVersionQuery query = access.component(request);

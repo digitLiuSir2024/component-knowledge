@@ -155,7 +155,15 @@ public class KnowledgeDraftCoordinator {
                     && "new:component".equals(content.path("targetComponentId").asText())) {
                 ((ObjectNode) content).put("targetComponentId", componentId);
             }
+            rejectTemporaryInteractionOwner(candidate);
         }
+    }
+
+    private void rejectTemporaryInteractionOwner(JsonNode candidate) {
+        if (!"INTERACTION".equals(candidate.path("objectType").asText())) {
+            return;
+        }
+        json.require(!"new:component".equals(candidate.path("content").path("componentId").asText()), ResponseEnum.KNOWLEDGE_SCOPE_MISMATCH);
     }
 
     private ObjectNode payload(MaintenanceRequest request, KnowledgeVersionQuery query, String origin, boolean registering) {

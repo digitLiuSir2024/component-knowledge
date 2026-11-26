@@ -6,12 +6,12 @@
 
 ```json
 {
-  "pageIdentity": {"systemCode": "example-system", "projectCode": "example-project", "pagePath": "/example"},
+  "pageIdentity": {"systemCode": "S", "projectCode": "P", "pagePath": "/page.html"},
   "components": {
-    "SearchPanel": {
-      "id": "SearchPanel",
-      "name": "查询面板",
-      "source": "ui/SearchPanel.vue",
+    "MetricsStrip": {
+      "id": "MetricsStrip",
+      "name": "核心指标总览",
+      "source": "src/MetricsStrip.tsx",
       "assemblyParents": ["page"]
     }
   }
@@ -20,6 +20,6 @@
 
 `source` 是取证位置。工具只读取请求中的快照数据。`assemblyParents` 支持共享装配，`page` 是保留的页面根标识。接口线索可通过 `apiDependencies` 附带，实际契约沿源码和知识服务核对。
 
-将快照传给 `knowledge_coverage_scope` 的 `registrySnapshot`，并原样放进 `coveragePlan.registrySnapshot`。覆盖摘要包含页面身份、范围和快照。旧项目仍可用 `KNOWLEDGE_PAGE_BINDINGS` 或原有全局页面绑定。
+将快照传给 `knowledge_coverage_scope` 的 `registrySnapshot`，并原样放进 `coveragePlan.registrySnapshot`。coveragePlan 包含页面身份、范围和快照；`coverageDigest` 是该计划的 SHA-256 摘要。仅兼容旧调用：在未传 `registrySnapshot` 时必须显式设置 `KNOWLEDGE_PAGE_BINDINGS`，不再读取用户目录下的默认绑定文件。
 
 知识读取和草稿提交依赖实现知识维护契约的服务，由 MCP 运行环境配置 `KNOWLEDGE_API_BASE`。

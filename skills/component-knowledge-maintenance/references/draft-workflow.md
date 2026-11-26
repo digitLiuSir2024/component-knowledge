@@ -2,7 +2,7 @@
 
 ## 1. 草稿状态与提交方式
 
-上下文读取结果中的 pendingDraftIds 为空时可新建；有一个 ID 时先用 read_knowledge_draft 读取完整候选、预览及人工修改，保留仍有效的候选并合并本次证据，以当前正式版为基准提交完整累计候选。旧基准上的人工修订必须核对到新基准，无法确认冲突时停止提交。两个及以上 ID 表示有多条存量草稿，提示用户先处理。仅有一份草稿时先读取并确认类型；恢复草稿不可按普通草稿替换。读取失败或缺少 pendingDraftIds 时暂停提交。无实质变更保留现有草稿。有正式版本时按 [submit_knowledge_draft](contracts/submit-knowledge-draft.md) 提交；无正式版本时按 [submit_initial_knowledge_draft](contracts/submit-initial-knowledge-draft.md) 提交，即使旧上下文已有知识也走基线草稿。首次读取与提交的接口列表须完全相同且顺序一致，使用读取返回的 `sourceRevision`；读和提交都**不传 meta**，meta 派生说明只放候选，避免后端将其作为已确认原始基线。重试相同内容沿用 `requestId`，改内容则换新 ID；基准/快照变化时重新读取和比较，不静默复用旧候选。
+上下文读取结果中的 pendingDraftIds 为空时可新建；有一个 ID 时先用 read_knowledge_draft 读取完整候选、预览及人工修改，保留仍有效的候选并合并本次证据，以当前正式版为基准提交完整累计候选。旧基准上的人工修订必须核对到新基准，无法确认冲突时停止提交。两个及以上 ID 表示有多条存量草稿，提示用户先处理。仅有一份草稿时先读取并确认类型；恢复草稿不可按普通草稿替换。读取失败或缺少 pendingDraftIds 时暂停提交。无实质变更保留现有草稿。有正式版本时按 [submit_knowledge_draft](contracts/submit-knowledge-draft.md) 提交；无正式版本时按 [submit_initial_knowledge_draft](contracts/submit-initial-knowledge-draft.md) 提交，即使旧上下文已有知识也走基线草稿。首次读取与提交的接口列表须完全相同且顺序一致，使用读取返回的 `sourceRevision`；读和提交都**不传 meta**，meta 派生说明只放候选，避免后端将其作为已确认原始基线。重试相同内容沿用 `requestId`，改内容则换新 ID；基准/快照变化时重新读取和比较，不静默复用旧候选。交互与联动候选必须在同一份 coveragePlan 内完成盘点与校验，计划变化须重算 coverageDigest 并重新审批；工具用法见 [interaction-graph](contracts/interaction-graph.md)。
 
 ## 2. 未登记组件的首次提交
 
@@ -18,12 +18,12 @@
 
 审批前逐项检查内容。派生指标有明确公式，直接展示及公式引用的基础指标都有可追溯的统计口径或具体缺口。联动盘点覆盖触发当前组件的来源和当前组件影响的目标。每个接口有逐字段梳理结果和独立的入稿判定。覆盖校验通过后仍须完成这些内容检查。
 
-审批绑定已展示的候选和基准。等待期间只开展只读核对。提交前重新读取基准和待审核草稿，核对版本、sourceRevision（首次基线）以及适用时的草稿 ID、修订号和内容。若基准、已有草稿或拟提交内容发生变化，重新核对、汇总并取得审批。提交时携带获批的 expectedPendingDraft。无待审核草稿时传 {}，否则传 {id, revision}。当前 MCP 工具未暴露该字段时暂停提交并报告连接器版本缺口。遇 10102 或 10111 时重新读取并评估审批是否仍有效。
+审批绑定已展示的候选和基准。等待期间只开展只读核对。提交前重新读取基准和待审核草稿，核对版本、sourceRevision（首次基线）以及适用时的草稿 ID、修订号和内容。若基准、已有草稿或拟提交内容发生变化，重新核对、汇总并取得审批。提交时携带获批的 expectedPendingDraft。无待审核草稿时传 {}，否则传 {id, revision}；三个 submit 工具均要求显式传入该字段。遇 10102 或 10111 时重新读取并评估审批是否仍有效。
 
 将新读取的成功 MCP 上下文保存为 JSON。每次提交前使用本轮获批时保存的计划和摘要运行：
 
 ```shell
-python3 check_submission_baseline.py --plan coverage-plan.json --digest 已获批摘要 --component TrendChart --context fresh-context.json
+python3 check_submission_baseline.py --plan coverage-plan.json --digest 已获批摘要 --component MetricsStrip --context fresh-context.json
 ```
 
 首次基线重读须沿用获批计划中的有序接口。若有唯一待审草稿，加传 `--approved-pending` 与 `--pending`，分别对应获批时和提交前的草稿回读 JSON。脚本核对摘要、正式或首次基准及待审草稿快照。MCP 读取、接口清单核对和审批仍由执行者完成。
@@ -58,11 +58,11 @@ python3 check_draft_readback.py --request sent-request.json --readback readback.
 
 ## 5. 供执行者参考的首次提交示例
 
-假设 meta 及代码核实 `DemoMetric` 展示有效任务数；MCP 返回 `currentVersionId=null`、`legacyContext.component.id=c1`、只有空身份骨架和 `sourceRevision=r1`。盘点结论：COMPONENT 修改身份骨架；代码中 `status != CANCELLED` 可推断 KNOWLEDGE 指标口径，APPLICABILITY 指向组件数据库 ID `c1`；其余类型逐项记录证据不足或不适用。候选示意：
+假设 meta 及代码核实 `MetricsStrip` 展示有效任务数；MCP 返回 `currentVersionId=null`、`legacyContext.component.id=c1`、只有空身份骨架和 `sourceRevision=r1`。盘点结论：COMPONENT 修改身份骨架；代码中 `status != CANCELLED` 可推断 KNOWLEDGE 指标口径，APPLICABILITY 指向组件数据库 ID `c1`；其余类型逐项记录证据不足或不适用。候选示意：
 
 ```json
 [
-  {"changeId":"c1","operation":"UPDATE","objectType":"COMPONENT","objectId":"c1","baseObjectVersionId":null,"targetVersionId":null,"content":{"componentId":"DemoMetric","name":"有效任务数","description":"展示按当前筛选条件计算的任务数","details":{"accepts":null,"presents":[{"label":"有效任务数","note":null,"variants":null}],"behaviors":null,"stateFlows":null}},"confirmationStatus":"PENDING","evidence":[{"kind":"FACT","source":"组件源码入口（示意）","excerpt":"展示有效任务数"}],"atomicGroupId":null},
+  {"changeId":"c1","operation":"UPDATE","objectType":"COMPONENT","objectId":"c1","baseObjectVersionId":null,"targetVersionId":null,"content":{"componentId":"MetricsStrip","name":"有效任务数","description":"展示按当前筛选条件计算的任务数","details":{"accepts":null,"presents":[{"label":"有效任务数","note":null,"variants":null}],"behaviors":null,"stateFlows":null}},"confirmationStatus":"PENDING","evidence":[{"kind":"FACT","source":"组件源码入口（示意）","excerpt":"展示有效任务数"}],"atomicGroupId":null},
   {"changeId":"c2","operation":"CREATE","objectType":"KNOWLEDGE","objectId":"new:k1","baseObjectVersionId":null,"targetVersionId":null,"content":{"title":"有效任务口径","type":"BUSINESS","kind":"METRIC_RULE","content":"当前实现排除已取消任务。","source":null},"confirmationStatus":"PENDING","evidence":[{"kind":"INFERENCE","source":"任务汇总过滤代码（示意）","excerpt":"status != CANCELLED"}],"atomicGroupId":"g1"},
   {"changeId":"c3","operation":"CREATE","objectType":"APPLICABILITY","objectId":"new:a1","baseObjectVersionId":null,"targetVersionId":null,"content":{"knowledgeId":"new:k1","targetType":"COMPONENT","targetId":"c1","unconditional":true,"condition":null,"exception":null,"replacesKnowledgeId":null},"confirmationStatus":"PENDING","evidence":[{"kind":"FACT","source":"组件取数路径（示意）","excerpt":"指标仅由该组件消费"}],"atomicGroupId":"g1"}
 ]

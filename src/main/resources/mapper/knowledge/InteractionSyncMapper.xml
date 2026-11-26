@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cmbchina.infrastructure.knowledge.dao.mapper.InteractionSyncMapper">
+  <insert id="upsertInteraction">
+    INSERT INTO knowledge_component_interaction
+      (id, component_id, action_name, trigger_condition, provided_content, response_text, sort_order)
+    VALUES
+      (#{row.id}, #{row.componentId}, #{row.actionName}, #{row.triggerCondition},
+       #{row.providedContent}, #{row.responseText}, #{row.sortOrder})
+    ON DUPLICATE KEY UPDATE
+      component_id=VALUES(component_id), action_name=VALUES(action_name),
+      trigger_condition=VALUES(trigger_condition), provided_content=VALUES(provided_content),
+      response_text=VALUES(response_text), sort_order=VALUES(sort_order)
+  </insert>
+  <insert id="upsertRelation">
+    INSERT INTO knowledge_component_relation
+      (id, interaction_id, target_component_id, effect_text, condition_text, sort_order)
+    VALUES
+      (#{row.id}, #{row.interactionId}, #{row.targetComponentId}, #{row.effectText},
+       #{row.conditionText}, #{row.sortOrder})
+    ON DUPLICATE KEY UPDATE
+      interaction_id=VALUES(interaction_id), target_component_id=VALUES(target_component_id),
+      effect_text=VALUES(effect_text), condition_text=VALUES(condition_text), sort_order=VALUES(sort_order)
+  </insert>
+  <delete id="deleteRelations">
+    DELETE r FROM knowledge_component_relation r
+    JOIN knowledge_component_interaction i ON i.id=r.interaction_id
+    WHERE i.component_id=#{componentId}
+    <if test="retained != null and retained.size() > 0">
+      AND r.id NOT IN
+      <foreach collection="retained" item="id" open="(" close=")" separator=",">#{id}</foreach>
+    </if>
+  </delete>
+  <delete id="deleteInteractions">
+    DELETE FROM knowledge_component_interaction WHERE component_id=#{componentId}
+    <if test="retained != null and retained.size() > 0">
+      AND id NOT IN
+      <foreach collection="retained" item="id" open="(" close=")" separator=",">#{id}</foreach>
+    </if>
+  </delete>
+</mapper>

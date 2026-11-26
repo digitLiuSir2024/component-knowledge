@@ -1,0 +1,126 @@
+{
+  "root": "MetricsStrip",
+  "registrySnapshot": {
+    "pageIdentity": {
+      "systemCode": "S",
+      "projectCode": "P",
+      "pagePath": "/page.html"
+    },
+    "components": {
+      "MetricsStrip": {
+        "id": "MetricsStrip",
+        "name": "核心指标总览",
+        "source": "src/MetricsStrip.tsx",
+        "assemblyParents": ["page"],
+        "apiDependencies": []
+      }
+    }
+  },
+  "discovery": {
+    "MetricsStrip": {
+      "metrics": {},
+      "interactions": {},
+      "interfaces": {},
+      "interfaceFields": {}
+    }
+  },
+  "components": {
+    "MetricsStrip": {
+      "items": {
+        "COMPONENT": {
+          "status": "candidate",
+          "evidence": "src/MetricsStrip.tsx:12",
+          "changeIds": ["c-component"]
+        },
+        "PAGE": {
+          "status": "inapplicable",
+          "evidence": "页面已登记，本次无变更",
+          "changeIds": []
+        },
+        "FLOW": {
+          "status": "inapplicable",
+          "evidence": "本组件无流程",
+          "changeIds": []
+        },
+        "KNOWLEDGE": {
+          "status": "inapplicable",
+          "evidence": "无新增知识口径",
+          "changeIds": []
+        },
+        "INTERFACE": {
+          "status": "inapplicable",
+          "evidence": "本组件无直接接口",
+          "changeIds": []
+        },
+        "APPLICABILITY": {
+          "status": "inapplicable",
+          "evidence": "无知识适用关系变更",
+          "changeIds": []
+        },
+        "PAGE_FLOW": {
+          "status": "inapplicable",
+          "evidence": "无页面流程变更",
+          "changeIds": []
+        },
+        "INTERACTION": {
+          "status": "inapplicable",
+          "evidence": "无用户操作",
+          "changeIds": []
+        },
+        "COMPONENT_RELATION": {
+          "status": "inapplicable",
+          "evidence": "无联动",
+          "changeIds": []
+        }
+      },
+      "review": {
+        "metrics": {},
+        "interactions": {},
+        "interfaces": {},
+        "directions": {
+          "inbound": "无上游状态或回调影响本组件。",
+          "outbound": "本组件仅展示指标，不触发其他组件。"
+        }
+      },
+      "request": {
+        "systemCode": "S",
+        "projectCode": "P",
+        "pagePath": "/page.html",
+        "componentId": "MetricsStrip",
+        "requestId": "example-coverage-plan-001",
+        "baseVersionId": "v1",
+        "expectedPendingDraft": {},
+        "changes": [
+          {
+            "changeId": "c-component",
+            "operation": "UPDATE",
+            "objectType": "COMPONENT",
+            "objectId": "component-db-id",
+            "baseObjectVersionId": "object-version-1",
+            "confirmationStatus": null,
+            "targetVersionId": null,
+            "atomicGroupId": null,
+            "content": {
+              "componentId": "MetricsStrip",
+              "name": "核心指标总览",
+              "description": "",
+              "details": {
+                "accepts": [],
+                "presents": [],
+                "behaviors": [],
+                "stateFlows": []
+              }
+            },
+            "evidence": [
+              {
+                "kind": "FACT",
+                "source": "src/MetricsStrip.tsx:12",
+                "excerpt": "组件名称与展示项"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

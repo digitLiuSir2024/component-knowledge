@@ -19,10 +19,12 @@
 新增主键由当前项目的 CUuid.nextId() 实际生成，共使用 120 个（25 组件、39 交互、56 关系）。不使用 UUID、随机拼接或数据库自动生成ID。执行前核实本机 zhituo 库仅有原组件、两张新表为空，并核对目标页面系统项目。
 
 ```sh
-python3 /private/tmp/zhituo-register-real-interactions.py
+python3 scripts/migrate-interaction-seed.py --dry-run
+python3 scripts/migrate-interaction-seed.py --api-base http://127.0.0.1:8081
+python3 scripts/migrate-interaction-seed.py --api-base http://127.0.0.1:8081 --publish
 ```
 
-该执行器使用 application.yml 的数据库配置，执行 database/component-interaction-data.sql，在一个事务中写入并提交；未打印凭据。数据脚本是一次性登记，重复执行主键冲突时应停止，不使用 --force。新库按 knowledge-schema.sql、knowledge-data.sql、component-interaction-data.sql 顺序执行；已登记当前资料的库不重复执行。
+迁移脚本不直连数据库，也不打印凭据：先 `--dry-run` 输出 17 个组件的 95 条候选，再不带 `--publish` 创建草稿，最后显式加 `--publish` 才执行用户确认后的发布。进度写入 `scripts/interaction-migration-mapping.json`，重复执行自动跳过已处理组件。`database/component-interaction-data.sql` 仅作 legacy 旧库种子，新库按 knowledge-schema.sql、knowledge-data.sql 执行后走本迁移流程。
 
 同步 knowledge-data.sql、report-summary-knowledge-data.sql、page-component-description.sql 和 structured-interface-context-data.sql 中相关组件标识，防止重新初始化或维护时恢复旧标识、旧名称。现有接口自身的登记名称不在组件重命名范围内。
 

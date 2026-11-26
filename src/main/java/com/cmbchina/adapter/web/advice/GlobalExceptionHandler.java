@@ -49,7 +49,8 @@ public class GlobalExceptionHandler {
             return error.getDefaultMessage();
         }
         FieldError field = (FieldError) error;
-        return field.getField() + "：" + (field.isBindingFailure() ? "类型或格式不符合接口要求，日期应为 yyyy-MM-dd" : field.getDefaultMessage());
+        String message = field.isBindingFailure() ? "类型或格式不符合接口要求，日期应为 yyyy-MM-dd" : field.getDefaultMessage();
+        return field.getField() + "：" + message;
     }
 
     /** 提取方法参数约束及校验消息。 */
