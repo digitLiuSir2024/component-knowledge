@@ -20,3 +20,5 @@ mybatis:
 knowledge:
   maintenance:
     enabled: ${KNOWLEDGE_MAINTENANCE_ENABLED:true}
+  legacy-interaction-sync:
+    enabled: ${KNOWLEDGE_LEGACY_INTERACTION_SYNC_ENABLED:true}

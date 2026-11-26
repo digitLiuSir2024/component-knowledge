@@ -135,6 +135,7 @@ public class KnowledgeDraftChanges {
                 exists(keys, "FLOW", content.path("flowId").asText());
             }
         }
+        InteractionRules.validateGraph(objects);
     }
 
     private void exists(Set<String> keys, String type, String id) {

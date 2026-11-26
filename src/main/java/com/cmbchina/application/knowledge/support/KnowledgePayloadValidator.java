@@ -79,11 +79,11 @@ public class KnowledgePayloadValidator {
             return;
         }
         if ("INTERACTION".equals(type)) {
-            fields(value, "componentId", "action");
+            InteractionRules.validateInteraction(value);
             return;
         }
         if ("COMPONENT_RELATION".equals(type)) {
-            fields(value, "interactionId", "targetComponentId", "effect");
+            InteractionRules.validateRelation(value);
             return;
         }
         json.require(false, invalid());

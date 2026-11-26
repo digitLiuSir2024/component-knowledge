@@ -1,4 +1,5 @@
--- 当前前端真实组件交互与联动登记。只执行一次，重复执行主键冲突时须停止，不使用 --force。
+-- LEGACY 一次性交互种子，只用于旧库初始化；重复执行主键冲突时须停止，不使用 --force。
+-- 新流程不要直接执行本文件：使用 scripts/migrate-interaction-seed.py 把 39 条交互与 56 条联动迁移为版本对象草稿。
 -- 来源为当前 React 实现与组件清单，证据见 docs/component-interaction-registration.md。
 -- 所有新增主键已调用项目 CUuid.nextId() 生成。保留核心指标原数据库主键及知识关联。
 SET NAMES utf8mb4;

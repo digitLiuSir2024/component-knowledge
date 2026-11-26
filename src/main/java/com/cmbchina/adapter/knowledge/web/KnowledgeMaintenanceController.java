@@ -39,6 +39,12 @@ public class KnowledgeMaintenanceController {
         return Result.success(service.readObjectHistory(request));
     }
 
+    /** 读取当前或指定版本的交互图。 */
+    @PostMapping("/interactions/graph")
+    public Result<JsonNode> interactionGraph(@Valid @RequestBody MaintenanceRequest request) {
+        return Result.success(service.readInteractionGraph(request));
+    }
+
     /** 分页发现组件待确认更新。 */
     @PostMapping("/drafts/list")
     public Result<JsonNode> listDrafts(@Valid @RequestBody MaintenanceRequest request) {

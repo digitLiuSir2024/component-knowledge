@@ -10,6 +10,10 @@
 
 Identity：systemCode、projectCode、pagePath、componentId 为必填 string，componentId 为页面内标识。ObjectIdentity：systemCode、projectCode、objectType、objectId 为必填 string。objectType 为 COMPONENT、PAGE、FLOW、KNOWLEDGE、INTERFACE、APPLICABILITY、PAGE_FLOW、INTERACTION、COMPONENT_RELATION。
 
+`/interactions/graph` 只读：未指定 versionId 时读取当前版本；未纳管组件回退 legacy 快照。返回的 interaction 已按版本清单补齐 source/target 身份，关系带 action、triggerCondition、providedContent、response。悬空关系、自环交互与缺失证据在草稿提交前由后端和 MCP 双重拒绝。
+
+发布交互或联动后，同一事务把版本对象回写到 `knowledge_component_interaction` / `knowledge_component_relation` 基础表；回写可用 `KNOWLEDGE_LEGACY_INTERACTION_SYNC_ENABLED=false` 关闭。INTERACTION 与 COMPONENT_RELATION 的 `content.sortOrder` 为可选整数，缺失时按清单顺序 ×10 生成。
+
 ## 端点清单
 
 | 后缀 | 必填入参 | 可选入参 | 成功 data |
@@ -18,6 +22,7 @@ Identity：systemCode、projectCode、pagePath、componentId 为必填 string，
 | `/objects/search` | systemCode、projectCode | objectType:string、keyword:string、offset:integer=0、limit:integer=20（1–100） | items:array、offset:integer、limit:integer、hasMore:boolean |
 | `/objects/version` | ObjectIdentity、versionId:string | 无 | 单个完整 ObjectVersion |
 | `/objects/history` | ObjectIdentity | offset、limit | items:array、hasMore:boolean |
+| `/interactions/graph` | Identity | versionId:string（明确历史版本） | currentVersionId:string|null、viewedVersion:ComponentVersionInfo|null、interactions:array、collaboration:object、issues:array |
 | `/drafts/list` | Identity | offset:integer=0、limit:integer=20（1–100） | items:array<DraftSummary>、total:integer、offset:integer、limit:integer、hasMore:boolean |
 | `/drafts/create` | Identity、requestId:string、origin:string、changes:array | baseVersionId:string|null、objectOnly:boolean=false | Draft |
 | `/drafts/update` | systemCode、projectCode、draftId:string、revision:integer、changes:array | 无 | Draft，revision递增 |
@@ -27,6 +32,12 @@ Identity：systemCode、projectCode、pagePath、componentId 为必填 string，
 | `/versions` | Identity | offset、limit | items:array、hasMore:boolean |
 | `/restore` | Identity、requestId、targetVersionId:string、expectedCurrentVersionId:string | confirmRestore:boolean，默认 false | RESTORE 预览或发布结果 |
 | `/baseline` | Identity、requestId、sourceRevision:string、meta:ComponentDetails | changes:array | MIGRATION Draft |
+| `/legacy/get` | entity:string、keys:object | 无 | 单行对象 |
+| `/legacy/list` | entity:string | filters:object、offset:integer=0、limit:integer=20（1–100） | 对象数组 |
+| `/legacy/upsert` | entity:string、row:object | 无 | 写入后的对象 |
+| `/legacy/delete` | entity:string、keys:object | 无 | affected:integer |
+
+`/legacy/*` 的 entity 只接受 14 张基础表的枚举名或表名；keys/filters/row 的字段名必须在对应表白名单内，其他字段一律 10000。upsert 未传主键时由服务端生成 CUuid。这套端点用于旧表运行时 CRUD；版本对象发布仍走草稿流程，交互发布会额外回写两张交互基础表。
 
 读 ObjectVersion 必须校验版本的对象身份，不接受用其他对象的 versionId。搜索返回摘要与明确版本身份，不代表已读完整正文。初版全文接口完整返回，不做隐式截断；后续若引入分段必须固定 versionId 并明确完整性，不能默默截断。
 
@@ -155,7 +166,7 @@ ComponentVersionInfo 字段：id:string、componentId:string、versionNo:integer
 成功响应的 `data` 为不可空布尔值 true。身份参数校验失败返回 10000，页面未登记返回 10100，功能关闭返回 10110。失败响应的 `data` 为 null。
 
 ```json
-{"code":0,"success":true,"message":"成功","data":true}
+{"code":200,"success":true,"message":"成功","data":true}
 ```
 
 `POST /drafts/create` 和 `POST /baseline` 的组件草稿请求可携带 `expectedPendingDraft`。传空对象 `{}` 表示审批时没有待审核草稿。传 `{"id":"draft-id","revision":1}` 表示允许替换该草稿的指定修订，id 为非空字符串，revision 为正整数。服务在组件加锁后核对预期，并以旧修订号为条件更新被替换的草稿。草稿或修订不匹配返回 10102，多个待审核草稿仍返回 10111，非法结构返回 10000。省略该字段沿用既有提交行为。完全相同的 requestId 和请求体重放返回原草稿。

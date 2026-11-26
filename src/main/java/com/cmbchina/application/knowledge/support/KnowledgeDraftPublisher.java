@@ -1,6 +1,7 @@
 package com.cmbchina.application.knowledge.support;
 
 import com.cmbchina.application.knowledge.api.dto.maintenance.MaintenanceRequest;
+import com.cmbchina.domain.knowledge.support.InteractionSyncSupport;
 import com.cmbchina.domain.knowledge.support.KnowledgeVersionSupport;
 import com.cmbchina.domain.knowledge.version.KnowledgeChangeDraft;
 import com.cmbchina.domain.knowledge.version.KnowledgeComponentVersion;
@@ -17,12 +18,15 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /** 发布单一事务的执行器，调用方应用服务负责事务边界。 */
 @Component
 public class KnowledgeDraftPublisher {
+    private static final Logger LOGGER = LoggerFactory.getLogger(KnowledgeDraftPublisher.class);
     @Autowired
     private KnowledgeVersionSupport support;
     @Autowired
@@ -35,6 +39,8 @@ public class KnowledgeDraftPublisher {
     private KnowledgeDraftChanges changes;
     @Autowired
     private KnowledgeVersionWriter writer;
+    @Autowired
+    private InteractionSyncSupport interactionSync;
 
     /** 幂等确认，失败全部回滚。 */
     public JsonNode publish(MaintenanceRequest request) {
@@ -70,12 +76,42 @@ public class KnowledgeDraftPublisher {
         requireChanged(manifest, current, originalManifest, draft);
         KnowledgeComponentVersion next = publishComponent(query, draft, payload, manifest, originalManifest, selected);
         result.put("componentVersionId", next == null ? null : next.getId());
+        if (next != null) {
+            syncBack(query, manifest);
+        }
         for (JsonNode entry : manifest) {
             ((ObjectNode) result.path("objectVersionIds")).put(entry.path("objectType").asText() + ":" + entry.path("objectId").asText(),
                     entry.path("versionId").asText());
         }
         close(draft, selected, result);
+        audit(query, draft, request, next == null ? null : next.getId(), manifest);
         return result;
+    }
+
+    private void syncBack(KnowledgeVersionQuery query, JsonNode manifest) {
+        java.util.List<String> ids = com.google.common.collect.Lists.newArrayList();
+        manifest.forEach(entry -> ids.add(entry.path("versionId").asText()));
+        java.util.List<KnowledgeObjectVersion> objects = java.util.Collections.emptyList();
+        if (!ids.isEmpty()) {
+            query.setVersionIds(ids);
+            objects = support.objectVersions(query);
+        }
+        interactionSync.sync(query.getComponentId(), objects);
+    }
+
+    private void audit(KnowledgeVersionQuery query, KnowledgeChangeDraft draft, MaintenanceRequest request, String versionId, JsonNode manifest) {
+        int interactions = 0;
+        int relations = 0;
+        for (JsonNode entry : manifest) {
+            String type = entry.path("objectType").asText();
+            if ("INTERACTION".equals(type)) {
+                interactions++;
+            } else if ("COMPONENT_RELATION".equals(type)) {
+                relations++;
+            }
+        }
+        LOGGER.info("knowledge publish component={} draft={} request={} version={} interactions={} relations={}", query.getComponentId(),
+                draft.getId(), request.getRequestId(), versionId, interactions, relations);
     }
 
     private void requireChanged(JsonNode manifest, KnowledgeComponentVersion current, JsonNode original, KnowledgeChangeDraft draft) {

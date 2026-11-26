@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 
 PAGE_KEYS = ("systemCode", "projectCode", "pagePath")
-DEFAULT_BINDINGS = Path.home() / ".codex" / "component-knowledge-pages.json"
 TYPES = ("COMPONENT", "PAGE", "FLOW", "KNOWLEDGE", "INTERFACE", "APPLICABILITY",
          "PAGE_FLOW", "INTERACTION", "COMPONENT_RELATION")
 
@@ -16,11 +15,13 @@ def require(condition, message):
 
 
 def page_binding(identity):
-    path = Path(os.environ.get("KNOWLEDGE_PAGE_BINDINGS", str(DEFAULT_BINDINGS))).expanduser()
+    configured = os.environ.get("KNOWLEDGE_PAGE_BINDINGS", "").strip()
+    require(bool(configured), "缺少 KNOWLEDGE_PAGE_BINDINGS，无法读取页面注册表绑定")
+    path = Path(configured).expanduser()
     try:
         entries = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise ValueError("无法读取页面注册表绑定配置") from exc
+        raise ValueError(f"无法读取页面注册表绑定配置：{path}") from exc
     require(isinstance(entries, list) and all(isinstance(entry, dict) for entry in entries),
             "页面注册表绑定必须是对象数组")
     matches = [entry for entry in entries
@@ -290,6 +291,62 @@ def check_structured_review(component, row, clues):
                         f"{label} 缺少类型、含义、必填或可空性")
 
 
+def validate_interaction_changes(changes, component_id=None):
+    """Validate interaction candidates before any draft reaches the service."""
+    require(isinstance(changes, list), "交互候选必须是数组")
+    interaction_ids = set()
+    owners = {}
+    for change in changes:
+        require(isinstance(change, dict), "交互候选格式无效")
+        if change.get("objectType") != "INTERACTION":
+            continue
+        require(isinstance(change.get("changeId"), str) and change["changeId"].strip(), "交互候选缺少 changeId")
+        require(isinstance(change.get("objectId"), str) and change["objectId"].strip(), "交互候选缺少 objectId")
+        object_id = change["objectId"]
+        interaction_ids.add(object_id)
+        content = change.get("content")
+        require(isinstance(content, dict), f"{change['changeId']} 交互缺少正文")
+        owner = content.get("componentId")
+        require(isinstance(owner, str) and owner.strip() and not owner.startswith("new:"),
+                f"{change['changeId']} 交互必须归属正式组件数据库 ID")
+        action = content.get("action")
+        require(isinstance(action, str) and action.strip(), f"{change['changeId']} 交互缺少动作")
+        require(content.get("sortOrder") is None or type(content["sortOrder"]) is int,
+                f"{change['changeId']} 交互排序值必须是整数")
+        evidence = change.get("evidence")
+        require(isinstance(evidence, list) and evidence and all(
+            isinstance(item, dict) and all(isinstance(item.get(k), str) and item[k].strip()
+                                           for k in ("kind", "source", "excerpt"))
+            for item in evidence), f"{change['changeId']} 交互缺少证据")
+        owners[object_id] = owner
+    for change in changes:
+        if change.get("objectType") != "COMPONENT_RELATION":
+            continue
+        content = change.get("content")
+        require(isinstance(content, dict), f"{change.get('changeId')} 联动缺少正文")
+        reference = content.get("interactionId")
+        require(reference in interaction_ids, f"{change.get('changeId')} 联动引用了未提交的交互")
+        target = content.get("targetComponentId")
+        require(isinstance(target, str) and target.strip(), f"{change.get('changeId')} 联动缺少目标组件")
+        require(target != owners.get(reference), f"{change.get('changeId')} 联动不能指向自身")
+        require(isinstance(content.get("effect"), str) and content["effect"].strip(),
+                f"{change.get('changeId')} 联动缺少影响说明")
+        require(content.get("sortOrder") is None or type(content["sortOrder"]) is int,
+                f"{change.get('changeId')} 联动排序值必须是整数")
+        evidence = change.get("evidence")
+        require(isinstance(evidence, list) and evidence and all(
+            isinstance(item, dict) and all(isinstance(item.get(k), str) and item[k].strip()
+                                           for k in ("kind", "source", "excerpt"))
+            for item in evidence), f"{change.get('changeId')} 联动缺少证据")
+    if component_id is not None:
+        for change in changes:
+            if change.get("objectType") == "INTERACTION" and isinstance(change.get("content"), dict):
+                owner = change["content"].get("componentId")
+                if isinstance(owner, str) and owner.startswith("new:"):
+                    raise ValueError("首次登记时交互归属不能使用 new:component")
+    return True
+
+
 def validate(identity, plan):
     require(isinstance(plan, dict) and isinstance(plan.get("root"), str), "缺少完整整理清单")
     expected = scope(identity, plan["root"], plan.get("registrySnapshot"))
@@ -314,6 +371,7 @@ def validate(identity, plan):
         require(request is None or isinstance(request, dict), f"{key} 候选请求无效")
         changes = request.get("changes") if request is not None else []
         require(isinstance(changes, list) and all(isinstance(c, dict) for c in changes), f"{key} 候选请求无效")
+        validate_interaction_changes(changes, key)
         for change in changes:
             operation, kind, object_id = (change.get(field) for field in ("operation", "objectType", "objectId"))
             if operation in ("UPDATE", "EXPIRE") and kind != "COMPONENT" and isinstance(object_id, str) and object_id:
@@ -355,6 +413,7 @@ def validate(identity, plan):
         if request is not None:
             require(bool(changes) and request.get("componentId") == key
                     and all(request.get(k) == v for k, v in page.items())
-                    and "expectedPendingDraft" in request, f"{key} 提交身份或草稿基准缺失")
+                    and isinstance(request.get("requestId"), str) and request["requestId"].strip()
+                    and "expectedPendingDraft" in request, f"{key} 提交身份、requestId 或草稿基准缺失")
     payload = json.dumps([page, expected, plan], sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(payload.encode()).hexdigest()

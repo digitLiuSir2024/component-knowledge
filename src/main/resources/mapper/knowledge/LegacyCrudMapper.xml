@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cmbchina.infrastructure.knowledge.dao.mapper.LegacyCrudMapper">
+  <sql id="columns">
+    <foreach collection="columns" item="c" separator=",">`${c}`</foreach>
+  </sql>
+  <select id="get" resultType="java.util.LinkedHashMap">
+    SELECT <include refid="columns"/> FROM `${table}`
+    <where>
+      <foreach collection="filters" index="column" item="value" separator=" AND ">`${column}` = #{value}</foreach>
+    </where>
+    LIMIT 1
+  </select>
+  <select id="list" resultType="java.util.LinkedHashMap">
+    SELECT <include refid="columns"/> FROM `${table}`
+    <where>
+      <foreach collection="filters" index="column" item="value" separator=" AND ">`${column}` = #{value}</foreach>
+    </where>
+    ORDER BY `${primaryKey}`
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+  <insert id="upsert">
+    INSERT INTO `${table}` (<include refid="columns"/>)
+    VALUES (<foreach collection="columns" item="c" separator=",">#{row[${c}]}</foreach>)
+    ON DUPLICATE KEY UPDATE <foreach collection="setColumns" item="c" separator=",">`${c}` = VALUES(`${c}`)</foreach>
+  </insert>
+  <delete id="delete">
+    DELETE FROM `${table}` WHERE `${primaryKey}` = #{primaryKey}
+  </delete>
+</mapper>

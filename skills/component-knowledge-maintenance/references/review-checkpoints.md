@@ -19,7 +19,7 @@ python3 extract_review_clues.py --snapshot snapshot.json --project-root /path/to
 在 coveragePlan.components 的每个组件内增加 review，与 items、request 同级。review 的 metrics、interactions、interfaces 以线索键索引，可补录取证时新发现的项。每条记录都填 evidence、item（关联 items 的键）和 gap（已核实填 null，有缺口填具体原因和补齐条件）。有缺口的记录关联 blocked 项。如同类还有可提交内容，使用独立的局部受阻项，保留对象类型汇总及候选关联。
 
 - metrics 的 kind 为 derived 或 base。派生指标填 formula 和 dependencies（所引用指标的盘点键列表）。基础指标逐一填写 population、source、filter、window、grouping、deduplication、empty。明确不适用时说明依据。基础口径缺失时填写 gap。派生指标引用受阻口径时不可关联待提交候选。
-- interactions 填 direction（inbound 或 outbound）以及 source、action、state、target、response。review.directions 须同时给出 inbound 和 outbound 巡查结论及依据。跨范围来源只取证，是否入稿按已经核实的服务归属及授权范围判定。
+- interactions 填 direction（inbound 或 outbound）以及 source、action、state、target、response。review.directions 须同时给出 inbound 和 outbound 巡查结论及依据。跨范围来源只取证，是否入稿按已经核实的服务归属及授权范围判定。入稿时 COMPONENT_RELATION.content.interactionId 必须等于同批 INTERACTION 候选的 objectId，不是 changeId。
 - interfaces 的 item 与线索键一致。提取结果中的 interfaceFields 保留在 discovery，覆盖校验会与 fields 对照。identifiedFields 为实现中识别的请求及响应字段路径列表，fields 以同一路径为键存储 type、required、nullable、meaning，或具体 gap。路径应区分请求与响应并标记数组层级。未登记不影响梳理。无字段时交代 noFieldsEvidence，无法取得字段时说明 gap。校验、错误及示例依据取证规则记录在盘点及候选正文。
 
 ## 3. 对照脚本线索和代码

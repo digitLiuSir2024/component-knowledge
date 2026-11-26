@@ -15,6 +15,9 @@ public interface KnowledgeMaintenanceApplicationService {
     /** readObjectHistory知识维护用例。 */
     JsonNode readObjectHistory(MaintenanceRequest request);
 
+    /** 读取组件当前或指定版本的交互图。 */
+    JsonNode readInteractionGraph(MaintenanceRequest request);
+
     /** 分页发现当前组件待确认更新。 */
     JsonNode listDrafts(MaintenanceRequest request);
 

@@ -1,4 +1,5 @@
 # read_knowledge_object_version
+通用字段、content 类型、Change、Draft 与错误码见 [common-schema.md](common-schema.md)。
 
 后端 POST `/api/v1/knowledge/maintenance/objects/version`。
 
@@ -34,13 +35,13 @@ ComponentDetails：accepts:array<{label:string,detail:string|null}>|null，prese
 
 | 类型 | 必需字段 | 可空字段/规则 |
 | --- | --- | --- |
-| COMPONENT | name:string|null、description:string|null、details:ComponentDetails | name/description 可以空字符串，不改变身份 |
+| COMPONENT | componentId:string（页面内组件标识，读取时由后端写入）、name:string|null、description:string|null、details:ComponentDetails | name/description 可以空字符串，不改变身份 |
 | PAGE / FLOW | name:string|null、description:string|null | 说明可为空字符串 |
 | KNOWLEDGE | title:string、type:BUSINESS/TECHNICAL、kind:BUSINESS_RULE/METRIC_RULE/TECHNICAL_RULE/CONFLICT、content:string | source:string|null；状态单独存版本元数据 |
 | INTERFACE | method:string、path:string、address:string、serviceCode:string、inputs:array、outputs:array、errors:array、examples:array、ruleIds:array<string> | name、description、requestType、responseType:string|null；字段树、错误和示例见下文，字段 ID 不因编辑改变 |
 | APPLICABILITY | knowledgeId:string、targetType:COMPONENT/PAGE/FLOW/INTERFACE、targetId:string、unconditional:boolean | condition、exception、replacesKnowledgeId:string|null；未知条件不视为无条件 |
 | PAGE_FLOW | pageId:string、flowId:string | 无 |
-| INTERACTION | componentId:string、action:string | triggerCondition、providedContent、response:string|null |
+| INTERACTION | componentId:string（组件数据库 ID）、action:string | triggerCondition、providedContent、response:string|null |
 | COMPONENT_RELATION | interactionId:string、targetComponentId:string、effect:string | condition:string|null |
 
 content 不包含跨版本正文副本。关联 ID 在清单中解析相应版本。适用关系的版本绑定仍遵循设计，不将当前关系直接拼接到历史正文。
@@ -57,22 +58,9 @@ INTERFACE 嵌套结构：
 ## 响应数据示例（必要时节选）
 
 ```json
-{"id": "KV1", "systemCode": "S", "projectCode": "P", "objectType": "KNOWLEDGE", "objectId": "K1", "versionNo": 1, "previousVersionId": null, "schemaVersion": 1, "versionPurpose": "NORMAL", "lifecycleState": "ACTIVE", "confirmationStatus": "PENDING", "content": {"title": "任务口径", "type": "BUSINESS", "kind": "METRIC_RULE", "content": "统计有效任务", "source": null}, "evidence": [], "draftId": "D1", "createdAt": "2026-11-17T09:00:00"}
+{"id": "KV1", "systemCode": "S", "projectCode": "P", "objectType": "KNOWLEDGE", "objectId": "K1", "versionNo": 1, "previousVersionId": null, "schemaVersion": 1, "versionPurpose": "NORMAL", "lifecycleState": "ACTIVE", "confirmationStatus": "PENDING", "content": {"title": "任务口径", "type": "BUSINESS", "kind": "METRIC_RULE", "content": "统计有效任务", "source": null}, "evidence": [], "draftId": "D1", "createdAt": "<ISO 8601 时间>"}
 ```
 
 ## 业务错误码
 
-| code | 标识 | 含义 |
-| --- | --- | --- |
-| 10100 | KNOWLEDGE_NOT_FOUND | 对象、草稿或版本不存在 |
-| 10101 | KNOWLEDGE_SCOPE_MISMATCH | 对象不属于当前系统项目或组件 |
-| 10102 | KNOWLEDGE_REVISION_CONFLICT | 草稿修订号已变化 |
-| 10103 | KNOWLEDGE_BASE_CONFLICT | 组件或编辑对象基准已变化 |
-| 10104 | KNOWLEDGE_REFERENCE_INVALID | 引用版本或完整性不合法 |
-| 10105 | KNOWLEDGE_DEPENDENCY_INVALID | 关联选择依赖不完整 |
-| 10106 | KNOWLEDGE_NO_CHANGE | 没有可发布的实质变更 |
-| 10107 | KNOWLEDGE_DRAFT_CLOSED | 草稿已丢弃或不允许修改 |
-| 10108 | KNOWLEDGE_REQUEST_CONFLICT | 幂等键被用于不同内容 |
-| 10109 | KNOWLEDGE_OBJECT_INVALID | 类型、结构、状态或生命周期不合法 |
-| 10110 | KNOWLEDGE_DISABLED | 维护功能尚未启用 |
-
+完整错误码表见 [common-schema.md](common-schema.md#业务错误码)。

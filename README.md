@@ -30,7 +30,14 @@ mvn spring-boot:run
 ```sh
 bash scripts/java-quality.sh verify src/main/java/
 bash scripts/backend-gate.sh src/main/java/
+mvn test
+python3 -m unittest discover -s scripts/tests
+python3 scripts/check_mcp_contract.py
 ```
+
+交互数据迁移：先 `python3 scripts/migrate-interaction-seed.py --dry-run` 检查计划，再不带 `--publish` 创建草稿，确认后加 `--publish` 发布。进度见 `scripts/interaction-migration-mapping.json`。
+
+基础表运行时 CRUD：`POST /api/v1/knowledge/maintenance/legacy/{get,list,upsert,delete}`，entity 为 14 张基础表枚举名或表名，字段受白名单约束。交互发布会在同一事务回写两张交互基础表，可用 `KNOWLEDGE_LEGACY_INTERACTION_SYNC_ENABLED=false` 关闭。
 
 前端设置 VITE_KNOWLEDGE_PROXY_TARGET=http://127.0.0.1:8081，统计地址仍通过 VITE_API_PROXY_TARGET 配置。生产部署分别转发 /zhituo/api/v1/knowledge/ 和 /zhituo/api/v1/model-context/ 至新服务，剥去 /zhituo 前缀。详见前端部署说明。
 

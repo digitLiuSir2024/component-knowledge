@@ -47,6 +47,11 @@ def verify(request, draft, draft_id):
         require(identity.get(key) == request[key], f"回读请求身份不匹配：{key}")
     for key in ("systemCode", "projectCode", "requestId"):
         require(draft.get(key) == request[key], f"草稿身份不匹配：{key}")
+    require("expectedPendingDraft" in request
+            and identity.get("expectedPendingDraft") == request["expectedPendingDraft"],
+            "回读请求基准不匹配：expectedPendingDraft")
+    expected_origin = "MIGRATION" if "sourceRevision" in request else "SESSION"
+    require(draft.get("origin") == expected_origin, f"草稿来源不匹配：{draft.get('origin')}，预期 {expected_origin}")
     require("baseVersionId" in draft and draft["baseVersionId"] == request.get("baseVersionId"),
             "草稿正式版本基准不匹配")
     if "sourceRevision" in request:
