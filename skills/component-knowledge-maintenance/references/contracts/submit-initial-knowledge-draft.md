@@ -16,7 +16,11 @@
 
 返回 Draft。使用服务提供的 reviewUrl 进入审核；提交只创建候选草稿。
 
-## 请求示例
+## MCP 附加参数
+
+调用 MCP 时还须传 `coveragePlan`、`coverageDigest` 和 `expectedPendingDraft`。前两项由桥接层校验及移除，`expectedPendingDraft` 转发服务端。将下方业务请求与 `expectedPendingDraft` 放入计划对应组件的 request，执行覆盖校验后将原计划及其摘要附到 MCP 请求。
+
+## 业务请求示例
 
 ```json
 {
@@ -25,6 +29,7 @@
   "pagePath": "/report",
   "componentId": "MetricsStrip",
   "requestId": "session-001",
+  "expectedPendingDraft": {},
   "changes": [
     {
       "changeId": "c1",
@@ -74,7 +79,7 @@ ComponentDetails：accepts:array<{label:string,detail:string|null}>|null，prese
 
 | 类型 | 必需字段 | 可空字段/规则 |
 | --- | --- | --- |
-| COMPONENT | name:string|null、description:string|null、details:ComponentDetails | name/description 可以空字符串，不改变身份 |
+| COMPONENT | componentId:string（页面内组件标识）、name:string|null、description:string|null、details:ComponentDetails | name/description 可以空字符串，不改变身份 |
 | PAGE / FLOW | name:string|null、description:string|null | 说明可为空字符串 |
 | KNOWLEDGE | title:string、type:BUSINESS/TECHNICAL、kind:BUSINESS_RULE/METRIC_RULE/TECHNICAL_RULE/CONFLICT、content:string | source:string|null；状态单独存版本元数据 |
 | INTERFACE | method:string、path:string、address:string、serviceCode:string、inputs:array、outputs:array、errors:array、examples:array、ruleIds:array<string> | name、description、requestType、responseType:string|null；字段树、错误和示例见下文，字段 ID 不因编辑改变 |

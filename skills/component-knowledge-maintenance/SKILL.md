@@ -21,6 +21,12 @@ description: Use when the user explicitly asks to organize or update a component
 
 沿前端装配、状态、回调和请求追到后端路由、业务计算、查询、DTO、校验与序列化。分别列出直接接口、上游接口及新发现的接口。用已核实的有序方法和服务地址调用 [read_component_knowledge](references/contracts/read-component-knowledge.md)，不传 meta。接口列表变化时，用更新后的有序清单重新读取，核对新接口及最新存量；首次基线使用新 sourceRevision。若候选或基准已经获批且发生变化，重新校验和审批。
 
+优先运行适用的源码提取器和项目已有的只读运行观测，保留原始证据及来源。执行者补跑其他可用取证路径；工具仍无法证实的事项带着具体缺口进入评审，由用户确认业务解释或补充证据。
+
+提取结果是待核线索。执行者读取相关实现，逐条核对脚本线索并独立寻找遗漏。源码足以证实的漏项直接补入盘点和候选，附代码位置。脚本误报保留排除依据，解释不准确时采用核实后的口径。只有源码和可用运行证据仍无法确认的事项进入评审缺口。
+
+取证时建立指标依赖清单，覆盖直接展示的指标及公式引用的基础指标；沿状态与回调双向追踪组件联动。接口逐字段梳理与入稿条件分别判定，具体要求见取证规则。
+
 读取失败不能视为无存量。复用对象时用 [search_knowledge_objects](references/contracts/search-knowledge-objects.md) 定位，再用 [read_knowledge_object_version](references/contracts/read-knowledge-object-version.md) 读取明确版本；[list_knowledge_object_versions](references/contracts/list-knowledge-object-versions.md) 仅用于定位历史。用 currentVersionId 判定提交工具，用实质存量判定全量或差量候选。用 [read_knowledge_draft](references/contracts/read-knowledge-draft.md) 检查唯一待审草稿及人工修订；遇到待审核草稿时，必读[草稿流程](references/draft-workflow.md)第 1 节，核对数量、类型、人工修订和基准冲突。
 
 ## 3. 逐项判定并验证覆盖
@@ -32,6 +38,8 @@ description: Use when the user explicitly asks to organize or update a component
 ```json
 {"root":"组件 ID 或 page","registrySnapshot":{},"components":{"组件 ID":{"items":{"盘点项":{"status":"candidate|unchanged|inapplicable|blocked","evidence":"证据位置或阻塞原因","changeIds":[]}},"request":null}}}
 ```
+
+本技能生成的新计划须按[结构化检查点](references/review-checkpoints.md)提供 discovery 和逐组件 review，兼容旧客户端的简式计划仅用于已有调用。
 
 候选提交前调用 `validate_knowledge_coverage` 并保留 coverageDigest。校验通过只证明计划通过工具校验；逐项核对已查位置、具体缺口、剩余取证手段与补齐条件。有可行手段时继续查，不能用 blocked 跳过核对。
 
