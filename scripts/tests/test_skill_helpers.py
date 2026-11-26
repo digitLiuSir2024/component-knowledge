@@ -2,6 +2,7 @@
 import importlib.util
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -42,15 +43,134 @@ class ServerHelperTest(unittest.TestCase):
             server.ensure_submit_target({"componentId": "OTHER"}, {"components": {"C1": {"request": {}}}})
         server.ensure_submit_target({"componentId": "C1"}, {"components": {"C1": {"request": {}}}})
 
-    def test_approval_token_is_plan_bound(self):
-        first = server.issue_approval_token("digest", {"a": 1})
-        self.assertEqual(first, server.issue_approval_token("digest", {"a": 1}))
-        self.assertNotEqual(first, server.issue_approval_token("digest", {"a": 2}))
+    def approval_plan(self):
+        return {
+            "registrySnapshot": {"pageIdentity": {"systemCode": "S", "projectCode": "P", "pagePath": "/p"}},
+            "components": {
+                "C1": {"request": {"requestId": "r1", "changes": [{"changeId": "c1"}]}},
+                "C2": {"request": {"requestId": "r2", "changes": [{"changeId": "c2"}]}},
+            },
+        }
 
-    def test_describe_requires_approval_token(self):
+    def token_page(self):
+        return {"systemCode": "S", "projectCode": "P", "pagePath": "/p"}
+
+    def test_approval_token_binding(self):
+        plan = self.approval_plan()
+        token = server.issue_approval_token("digest", plan)
+        self.assertNotEqual(token, server.issue_approval_token("digest", plan))
+        server.verify_approval_token(token, digest="digest", plan=plan, component="C1",
+                                     page=self.token_page(), request_id="r1", selected_change_ids=["c1"])
+        with self.assertRaises(ValueError):
+            server.verify_approval_token(token, digest="other")
+        with self.assertRaises(ValueError):
+            server.verify_approval_token(token, plan={"changed": True})
+        with self.assertRaises(ValueError):
+            server.verify_approval_token(token, component="C9")
+        with self.assertRaises(ValueError):
+            server.verify_approval_token(token, component="C1", request_id="r2")
+        with self.assertRaises(ValueError):
+            server.verify_approval_token(token, component="C1", selected_change_ids=["c9"])
+
+    def test_approval_token_consumed_per_publish_target(self):
+        plan = self.approval_plan()
+        token = server.issue_approval_token("digest", plan)
+        server.verify_approval_token(token, component="C1", page=self.token_page(),
+                                     request_id="r1", selected_change_ids=["c1"],
+                                     publish_target=("C1", "d1"))
+        server.consume_approval_target(token, ("C1", "d1"))
+        with self.assertRaises(ValueError):
+            server.verify_approval_token(token, component="C1", page=self.token_page(),
+                                         request_id="r1", selected_change_ids=["c1"],
+                                         publish_target=("C1", "d1"))
+        server.verify_approval_token(token, component="C2", page=self.token_page(),
+                                     request_id="r2", selected_change_ids=["c2"],
+                                     publish_target=("C2", "d2"))
+        server.consume_approval_target(token, ("C2", "d2"))
+        with self.assertRaises(ValueError):
+            server.verify_approval_token(token, component="C2", page=self.token_page(),
+                                         request_id="r2", selected_change_ids=["c2"],
+                                         publish_target=("C2", "d2"))
+
+    def test_approval_token_expiry(self):
+        token = server.issue_approval_token("digest", self.approval_plan())
+        server._APPROVAL_TOKENS[token]["issuedAt"] -= server.APPROVAL_TTL_SECONDS + 1
+        with self.assertRaises(ValueError):
+            server.verify_approval_token(token)
+        with self.assertRaises(ValueError):
+            server.consume_approval_target(token, ("C1", "d1"))
+
+    def test_describe_required_fields(self):
         tools = {tool["name"]: tool for tool in server.describe()}
-        for name in ("submit_knowledge_draft", "submit_interaction_candidates", "submit_initial_knowledge_draft"):
+        for name in ("submit_knowledge_draft", "submit_interaction_candidates", "submit_initial_knowledge_draft",
+                     "publish_approved_draft"):
             self.assertIn("approvalToken", tools[name]["inputSchema"]["required"])
+        for name in ("list_knowledge_drafts", "list_component_versions"):
+            required = tools[name]["inputSchema"]["required"]
+            self.assertIn("pagePath", required)
+            self.assertIn("componentId", required)
+        self.assertIn("requestId", tools["publish_approved_draft"]["inputSchema"]["required"])
+
+    def test_admin_write_gate(self):
+        previous = os.environ.get("KNOWLEDGE_MCP_ENABLE_ADMIN_WRITES")
+        try:
+            os.environ.pop("KNOWLEDGE_MCP_ENABLE_ADMIN_WRITES", None)
+            self.assertFalse(server.admin_writes_enabled())
+            with self.assertRaises(ValueError):
+                server.call_tool("upsert_legacy_record", {
+                    "entity": "PAGE", "row": {"id": "p1"}, "confirmWrite": True,
+                })
+            with self.assertRaises(ValueError):
+                server.call_tool("upsert_legacy_record", {
+                    "entity": "COMPONENT_INTERACTION", "row": {"id": "i1"}, "confirmWrite": True,
+                })
+            os.environ["KNOWLEDGE_MCP_ENABLE_ADMIN_WRITES"] = "true"
+            self.assertTrue(server.admin_writes_enabled())
+            with self.assertRaises(ValueError):
+                server.call_tool("delete_legacy_record", {
+                    "entity": "COMPONENT_RELATION", "keys": {"id": "r1"}, "confirmWrite": True,
+                })
+        finally:
+            if previous is None:
+                os.environ.pop("KNOWLEDGE_MCP_ENABLE_ADMIN_WRITES", None)
+            else:
+                os.environ["KNOWLEDGE_MCP_ENABLE_ADMIN_WRITES"] = previous
+
+    def test_publish_rejects_unbound_token(self):
+        token = server.issue_approval_token("digest", self.approval_plan())
+        base = {
+            "systemCode": "S", "projectCode": "P", "pagePath": "/p", "componentId": "C1",
+            "requestId": "r1", "draftId": "d1", "revision": 1,
+            "selectedChangeIds": ["c1"], "confirmPublish": True, "approvalToken": token,
+        }
+        server.verify_approval_token(token, component="C1", page={"systemCode": "S", "projectCode": "P", "pagePath": "/p"},
+                                     request_id="r1", selected_change_ids=["c1"])
+        with self.assertRaises(ValueError):
+            server.call_tool("publish_approved_draft", dict(base, requestId="other"))
+        with self.assertRaises(ValueError):
+            server.call_tool("publish_approved_draft", dict(base, componentId="C2"))
+        missing = dict(base)
+        missing.pop("approvalToken")
+        with self.assertRaises(ValueError):
+            server.call_tool("publish_approved_draft", missing)
+
+    def test_initial_draft_requires_interfaces(self):
+        args = {
+            "systemCode": "S", "projectCode": "P", "pagePath": "/p", "componentId": "C1",
+            "requestId": "r1", "sourceRevision": "rev", "changes": [],
+            "coveragePlan": {"components": {}}, "coverageDigest": "d",
+            "expectedPendingDraft": {}, "approvalToken": "t",
+        }
+        with self.assertRaises(ValueError):
+            server.call_tool("submit_initial_knowledge_draft", args)
+
+    def test_new_tools_have_correct_hints(self):
+        tools = {tool["name"]: tool for tool in server.describe()}
+        self.assertTrue(tools["read_legacy_record"]["annotations"]["readOnlyHint"])
+        self.assertFalse(tools["upsert_legacy_record"]["annotations"]["readOnlyHint"])
+        self.assertTrue(tools["delete_legacy_record"]["annotations"]["destructiveHint"])
+        self.assertFalse(tools["publish_approved_draft"]["annotations"]["readOnlyHint"])
+        self.assertTrue(tools["discard_knowledge_draft"]["annotations"]["destructiveHint"])
 
     def test_request_timeout_from_environment(self):
         previous = os.environ.get("KNOWLEDGE_MCP_TIMEOUT")
@@ -114,6 +234,31 @@ class ReadbackContractTest(unittest.TestCase):
         request = self.request()
         self.assertEqual({"systemCode": "S", "projectCode": "P", "pagePath": "/page.html"},
                          baseline.page_identity(request))
+
+
+class ContractDocumentTest(unittest.TestCase):
+    def test_tool_declarations_match_document(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        checker = importlib.import_module("check_mcp_contract")
+        self.assertEqual([], checker.verify())
+
+    def test_checker_detects_document_drift(self):
+        sys.path.insert(0, str(ROOT / "scripts"))
+        checker = importlib.import_module("check_mcp_contract")
+        original = checker.DOC.read_text(encoding="utf-8")
+        old = "| `list_knowledge_drafts` | systemCode, projectCode, pagePath, componentId |"
+        new = "| `list_knowledge_drafts` | systemCode, projectCode |"
+        self.assertIn(old, original)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad.md"
+            path.write_text(original.replace(old, new, 1), encoding="utf-8")
+            previous = checker.DOC
+            checker.DOC = path
+            try:
+                errors = checker.verify()
+            finally:
+                checker.DOC = previous
+        self.assertTrue(any("list_knowledge_drafts" in error for error in errors))
 
 
 if __name__ == "__main__":

@@ -32,6 +32,7 @@ bash scripts/java-quality.sh verify src/main/java/
 bash scripts/backend-gate.sh src/main/java/
 mvn test
 python3 -m unittest discover -s scripts/tests
+python3 scripts/check_mcp_contract.py
 ```
 
 交互数据迁移：先 `python3 scripts/migrate-interaction-seed.py --dry-run` 检查计划，再不带 `--publish` 创建草稿，确认后加 `--publish` 发布。进度见 `scripts/interaction-migration-mapping.json`。

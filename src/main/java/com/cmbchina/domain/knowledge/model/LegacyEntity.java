@@ -53,6 +53,11 @@ public enum LegacyEntity {
         return columns.contains(column);
     }
 
+    /** 交互基础表由发布事务回写，禁止通过通用 CRUD 绕过版本链。 */
+    public boolean versionManaged() {
+        return this == COMPONENT_INTERACTION || this == COMPONENT_RELATION;
+    }
+
     /** 接受枚举名或表名，均大小写不敏感。 */
     public static LegacyEntity parse(String value) {
         if (value == null) {

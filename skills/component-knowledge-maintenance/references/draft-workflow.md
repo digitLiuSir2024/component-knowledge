@@ -2,7 +2,7 @@
 
 ## 1. 草稿状态与提交方式
 
-上下文读取结果中的 pendingDraftIds 为空时可新建；有一个 ID 时先用 read_knowledge_draft 读取完整候选、预览及人工修改，保留仍有效的候选并合并本次证据，以当前正式版为基准提交完整累计候选。旧基准上的人工修订必须核对到新基准，无法确认冲突时停止提交。两个及以上 ID 表示有多条存量草稿，提示用户先处理。仅有一份草稿时先读取并确认类型；恢复草稿不可按普通草稿替换。读取失败或缺少 pendingDraftIds 时暂停提交。无实质变更保留现有草稿。有正式版本时按 [submit_knowledge_draft](contracts/submit-knowledge-draft.md) 提交；无正式版本时按 [submit_initial_knowledge_draft](contracts/submit-initial-knowledge-draft.md) 提交，即使旧上下文已有知识也走基线草稿。首次读取与提交的接口列表须完全相同且顺序一致，使用读取返回的 `sourceRevision`；读和提交都**不传 meta**，meta 派生说明只放候选，避免后端将其作为已确认原始基线。重试相同内容沿用 `requestId`，改内容则换新 ID；基准/快照变化时重新读取和比较，不静默复用旧候选。交互与联动候选必须在同一份 coveragePlan 内完成盘点与校验，计划变化须重算 coverageDigest 并重新审批；工具用法见 [interaction-graph](contracts/interaction-graph.md)。
+上下文读取结果中的 pendingDraftIds 为空时可新建；有一个 ID 时先用 read_knowledge_draft 读取完整候选、预览及人工修改，保留仍有效的候选并合并本次证据，以当前正式版为基准提交完整累计候选。旧基准上的人工修订必须核对到新基准，无法确认冲突时停止提交。两个及以上 ID 表示有多条存量草稿，提示用户先处理。仅有一份草稿时先读取并确认类型；恢复草稿不可按普通草稿替换。读取失败或缺少 pendingDraftIds 时暂停提交。无实质变更保留现有草稿。有正式版本时按 [submit_knowledge_draft](contracts/submit-knowledge-draft.md) 提交；无正式版本时按 [submit_initial_knowledge_draft](contracts/submit-initial-knowledge-draft.md) 提交，即使旧上下文已有知识也走基线草稿。首次读取与提交的接口列表须完全相同且顺序一致，使用读取返回的 `sourceRevision`；读和提交都**不传 meta**，meta 派生说明只放候选，避免后端将其作为已确认原始基线。重试相同内容沿用 `requestId`，改内容则换新 ID；基准/快照变化时重新读取和比较，不静默复用旧候选。交互与联动候选必须在同一份 coveragePlan 内完成盘点与校验，计划变化须重算 coverageDigest、重新取得 approvalToken 并重新审批；三个 submit 工具都必须显式传 approvalToken。工具用法见 [interaction-graph](contracts/interaction-graph.md)。
 
 ## 2. 未登记组件的首次提交
 
@@ -18,7 +18,7 @@
 
 审批前逐项检查内容。派生指标有明确公式，直接展示及公式引用的基础指标都有可追溯的统计口径或具体缺口。联动盘点覆盖触发当前组件的来源和当前组件影响的目标。每个接口有逐字段梳理结果和独立的入稿判定。覆盖校验通过后仍须完成这些内容检查。
 
-审批绑定已展示的候选和基准。等待期间只开展只读核对。提交前重新读取基准和待审核草稿，核对版本、sourceRevision（首次基线）以及适用时的草稿 ID、修订号和内容。若基准、已有草稿或拟提交内容发生变化，重新核对、汇总并取得审批。提交时携带获批的 expectedPendingDraft。无待审核草稿时传 {}，否则传 {id, revision}；三个 submit 工具均要求显式传入该字段。遇 10102 或 10111 时重新读取并评估审批是否仍有效。
+审批绑定已展示的候选和基准。等待期间只开展只读核对。提交前重新读取基准和待审核草稿，核对版本、sourceRevision（首次基线）以及适用时的草稿 ID、修订号和内容。若基准、已有草稿或拟提交内容发生变化，重新核对、汇总并取得审批。提交时携带获批的 expectedPendingDraft 与 approvalToken。无待审核草稿时传 {}，否则传 {id, revision}；三个 submit 工具均要求显式传入这两个字段。approvalToken 来自同一份 coveragePlan 的 validate_knowledge_coverage 返回，不能混用不同计划的令牌。遇 10102 或 10111 时重新读取并评估审批是否仍有效。
 
 将新读取的成功 MCP 上下文保存为 JSON。每次提交前使用本轮获批时保存的计划和摘要运行：
 
@@ -32,7 +32,7 @@ python3 check_submission_baseline.py --plan coverage-plan.json --digest 已获�
 
 可用 `--batch-context batch-context.json` 替代单组件参数。该文件按组件 ID 保存 `context`，若存在待审草稿，再附 `pending` 和 `approvedPending`。脚本输出可继续复核的 ready 组件和 blocked 原因，任一组件受阻则返回非零。受阻项不能提交。脚本不会发送 MCP 请求，提交每一项前仍须重新取得其当前基准。已在审批计划内标记等待发布的对象依赖，取得正式版本后纳入新的审批计划。
 
-提交超时或响应不明时，先通过 MCP 查询并回读可能已保存的草稿，按 requestId 和完整候选确认结果。若仍无法确认，才以同一个 requestId 和完全相同的请求幂等重试。已由本次请求建立的登记按首次登记规则核对。草稿保存后仍需回读校验，发布仍由用户在详情页确认。
+提交超时或响应不明时，先通过 MCP 查询并回读可能已保存的草稿，按 requestId 和完整候选确认结果。若仍无法确认，才以同一个 requestId 和完全相同的请求幂等重试。已由本次请求建立的登记按首次登记规则核对。草稿保存后仍需回读校验。发布必须由用户明确批准：可在详情页确认，也可在会话中明确要求后用 `publish_approved_draft` 执行；后者必须显式传 `approvalToken`、`confirmPublish=true` 与当前 `revision`。令牌按 `(componentId, draftId)` 一次性消费，同一计划的其他组件可复用同一令牌继续发布。
 
 ## 4. 核对草稿并告知用户
 
@@ -48,7 +48,7 @@ python3 check_submission_baseline.py --plan coverage-plan.json --digest 已获�
 python3 check_draft_readback.py --request sent-request.json --readback readback.json --draft-id D1
 ```
 
-脚本核对请求身份、草稿状态、正式或首次基准、首次登记 ID 映射和完整候选。输出嵌套字段差异时按上述规则复核。审核链接及用户选择仍在详情页核对。
+脚本核对请求身份、草稿状态、正式或首次基准、首次登记 ID 映射和完整候选。输出嵌套字段差异时按上述规则复核。审核链接及用户选择仍需核对；若用 `publish_approved_draft` 发布，须确认令牌绑定的是已获批组件与候选，并在成功后回读 `currentVersionId` 与草稿发布结果。
 
 每次处理一个页面或组件子树，逐组件提交和回读，在本次任务内保留实际发送的 Change 清单直至完成回读比对。校验以本次提交后通过草稿查询接口读到的持久化内容为准；发现漏项、多项或字段差异时，列出预期值与实际值并继续核查。
 
@@ -68,8 +68,8 @@ python3 check_draft_readback.py --request sent-request.json --readback readback.
 ]
 ```
 
-上述内容为结构示意，不是该项目的真实知识；只有核实目标规则无附加适用条件时才可设 `unconditional=true`。提交时向首次工具传 `r1`、读取时的同一接口列表、这些 changes 和新的 `requestId`；审核仍在详情页。
+上述内容为结构示意，不是该项目的真实知识；只有核实目标规则无附加适用条件时才可设 `unconditional=true`。提交时向首次工具传 `r1`、读取时的同一接口列表、这些 changes、新的 `requestId` 和同一份计划签发的 `approvalToken`；发布须用户明确批准，可在详情页或用受控发布工具完成。
 
 ## 6. 供执行者参考的更新示例
 
-假设当前版本 `v2` 引用 KNOWLEDGE 对象 `K1` 的明确版本 `kv2`，已有“统计所有任务”；前后端代码可核实排除取消状态，且会话未确认业务目标。盘点其他类型无变化或有明确缺口，针对 `K1` 仅提一条 `UPDATE`：`baseObjectVersionId=kv2`，完整 `content` 保留旧 title/type/kind/source，只将口径改为“当前实现排除取消状态”，证据分别指向代码 FACT 与模型口径归纳 INFERENCE，`confirmationStatus=PENDING`。使用 `submit_knowledge_draft` 工具时 `baseVersionId=v2`；如果存量口径与当前实现冲突且无法确定应遵循哪个，不写成已确认结论，只报告冲突或提交清楚标识的待确认候选。
+假设当前版本 `v2` 引用 KNOWLEDGE 对象 `K1` 的明确版本 `kv2`，已有“统计所有任务”；前后端代码可核实排除取消状态，且会话未确认业务目标。盘点其他类型无变化或有明确缺口，针对 `K1` 仅提一条 `UPDATE`：`baseObjectVersionId=kv2`，完整 `content` 保留旧 title/type/kind/source，只将口径改为“当前实现排除取消状态”，证据分别指向代码 FACT 与模型口径归纳 INFERENCE，`confirmationStatus=PENDING`。使用 `submit_knowledge_draft` 工具时 `baseVersionId=v2`，并携带同一计划签发的 `approvalToken`；如果存量口径与当前实现冲突且无法确定应遵循哪个，不写成已确认结论，只报告冲突或提交清楚标识的待确认候选。

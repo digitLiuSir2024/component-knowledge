@@ -2,6 +2,10 @@
 
 本文件是各工具契约的单一事实源。端点专属的请求与示例仍写在各自契约中；字段形状、content 类型、Change、Draft 和错误码只在此处维护。
 
+## 工具清单与令牌
+
+19 个 MCP 工具的必填矩阵见 [knowledge-ingestion.md](knowledge-ingestion.md) 与各端点契约。`approvalToken` 由 `validate_knowledge_coverage` 签发，绑定 coverageDigest、页面身份、componentId、requestId 与所选 changeIds；有效期 30 分钟，发布成功后按 `(componentId, draftId)` 消费，同一计划其他组件或新草稿仍可复用，业务失败不消费。令牌只防误用，不是用户身份认证，也不替代后端鉴权。
+
 ## Result 信封
 
 所有后端返回 `Result`：`code:integer`、`success:boolean`、`message:string`、`data:object|array|null`。业务失败也用 HTTP 200；MCP 桥接层把非 200 业务码转成 `isError:true` 的文本。

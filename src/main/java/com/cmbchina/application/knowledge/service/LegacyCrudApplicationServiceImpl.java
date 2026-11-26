@@ -49,6 +49,7 @@ public class LegacyCrudApplicationServiceImpl implements LegacyCrudApplicationSe
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public JsonNode upsert(LegacyCrudRequest request) {
         LegacyEntity entity = entity(request);
+        json.require(!entity.versionManaged(), ResponseEnum.KNOWLEDGE_OBJECT_INVALID);
         Map<String, Object> row = map(entity, request.getRow());
         Object id = row.get(entity.primaryKey());
         if (id == null || id.toString().trim().isEmpty()) {
@@ -61,6 +62,7 @@ public class LegacyCrudApplicationServiceImpl implements LegacyCrudApplicationSe
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public JsonNode delete(LegacyCrudRequest request) {
         LegacyEntity entity = entity(request);
+        json.require(!entity.versionManaged(), ResponseEnum.KNOWLEDGE_OBJECT_INVALID);
         Map<String, Object> keys = keys(entity, request.getKeys());
         int affected = support.delete(entity, keys);
         ObjectNode result = json.object();
